@@ -1,12 +1,13 @@
 package main
 
-import(
-    "fmt"
-    "flag"
-    "bytes"
-    "encoding/csv"
-    "io"
-    "os"
+import (
+	"bytes"
+	"encoding/csv"
+	"flag"
+	"fmt"
+	"io"
+	"os"
+	//"strings"
 )
 
 
@@ -26,15 +27,45 @@ func init() {
 }
 
 func main() {
-    to_do_list := []task{}
+    //to_do_list := [][]string{}
+    filename := "task_list.csv"
     fmt.Println("!... Hello World ...!")
     flag.Parse()
-    new_task := task{
+    data, err := readCSVFile(filename)
+    if err!= nil {
+        fmt.Println("Error reading file:", err)
+        return
+    }
+    reader, err := parseCSV(data)
+    if err!= nil {
+        fmt.Println("Error creating CSV reader:", err)
+        return
+    }
+    to_do_list := processCSV(reader)
+    /* new_task := task{
         name: *name,
         status: *status,
     }
     to_do_list = append(to_do_list, new_task)
-    fmt.Println(to_do_list)
+    fmt.Println(to_do_list) */
+    writer, file, err := createCSVWriter(filename)
+    if err != nil {
+        fmt.Println("Error creating CSV writer:", err)
+        return
+    }
+    defer file.Close()
+    /* header := []string{"Name", "Status"}
+    writeCSVRecord(writer, header) */
+    new_task := []string{*name, *status}
+    to_do_list = append(to_do_list, new_task)
+    for _, record := range to_do_list {
+        writeCSVRecord(writer, record)
+    }
+    // Flush the writer and check for any errors
+    writer.Flush()
+    if err := writer.Error(); err != nil {
+        fmt.Println("Error flushing CSV writer:", err)
+    }
     /*myslice := []string{}
     var input string = "start"
     for input != "exit" {
@@ -42,5 +73,55 @@ func main() {
         myslice = append(myslice, input)
     }
     fmt.Println("myslice has value ", myslice) */
+    fmt.Println(to_do_list)
 }
 
+func createCSVWriter(filename string) (*csv.Writer, *os.File, error) {
+    f, err := os.Create(filename)
+    if err != nil {
+        return nil, nil, err
+    }
+    writer := csv.NewWriter(f)
+    return writer, f, nil
+}
+
+func writeCSVRecord(writer *csv.Writer, record []string) {
+    err := writer.Write(record)
+    if err != nil {
+        fmt.Println("Error writing record to CSV:", err)
+    }
+}
+
+func readCSVFile(filename string) ([]byte, error) {
+    f, err := os.Open(filename)
+    if err!= nil {
+        return nil, err
+    }
+    defer f.Close()
+    data, err := io.ReadAll(f)
+    if err!= nil {
+        return nil, err
+    }
+    return data, nil
+}
+
+func parseCSV(data []byte) (*csv.Reader, error) {
+    reader := csv.NewReader(bytes.NewReader(data))
+    return reader, nil
+}
+
+func processCSV(reader *csv.Reader) ([][]string){
+    task_list := [][]string{}
+    for {
+        record, err := reader.Read()
+        if err == io.EOF {
+            break
+        } else if err!= nil {
+            fmt.Println("Error reading CSV data:", err)
+            break
+        }
+        //fmt.Println(record)
+        task_list = append(task_list, record)
+    }
+    return task_list
+}
