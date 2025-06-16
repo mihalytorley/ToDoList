@@ -42,7 +42,8 @@ func main() {
         return
     }
     to_do_list := processCSV(reader)
-    // Check for task already exisiting
+
+    // Check if change is an addition, subtraction, or change in task status
     i := 0
     task_change_bool := false
     for _, task := range to_do_list {
