@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	//"strings"
+    "slices"
 )
 
 
@@ -27,10 +27,10 @@ func init() {
 }
 
 func main() {
-    //to_do_list := [][]string{}
     filename := "task_list.csv"
     fmt.Println("!... Hello World ...!")
     flag.Parse()
+    //Reading CSV file starts here
     data, err := readCSVFile(filename)
     if err!= nil {
         fmt.Println("Error reading file:", err)
@@ -42,22 +42,36 @@ func main() {
         return
     }
     to_do_list := processCSV(reader)
-    /* new_task := task{
-        name: *name,
-        status: *status,
+    // Check for task already exisiting
+    i := 0
+    task_change_bool := false
+    for _, task := range to_do_list {
+        if slices.Contains(task, *name) {
+            to_do_list[i][1] = *status
+            task_change_bool = true
+            if *status == "delete" {
+                fmt.Println(to_do_list)
+                if len(to_do_list)-1 == i {
+                    to_do_list = to_do_list[:i]
+                } else {
+                    to_do_list = slices.Delete(to_do_list, i, i+1)
+                }
+            }
+        }
+        i++
     }
-    to_do_list = append(to_do_list, new_task)
-    fmt.Println(to_do_list) */
+    if task_change_bool == false {
+        new_task := []string{*name, *status}
+        to_do_list = append(to_do_list, new_task)
+    }
+
+    // Writing CSV file starts here
     writer, file, err := createCSVWriter(filename)
     if err != nil {
         fmt.Println("Error creating CSV writer:", err)
         return
     }
     defer file.Close()
-    /* header := []string{"Name", "Status"}
-    writeCSVRecord(writer, header) */
-    new_task := []string{*name, *status}
-    to_do_list = append(to_do_list, new_task)
     for _, record := range to_do_list {
         writeCSVRecord(writer, record)
     }
