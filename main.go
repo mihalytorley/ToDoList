@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
     "slices"
+    "log/slog"
 )
 
 
@@ -27,18 +28,18 @@ func init() {
 }
 
 func main() {
+    logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
     filename := "task_list.csv"
-    fmt.Println("!... Hello World ...!")
     flag.Parse()
     //Reading CSV file starts here
     data, err := readCSVFile(filename)
     if err!= nil {
-        fmt.Println("Error reading file:", err)
+        logger.Error("Error reading file:", err)
         return
     }
     reader, err := parseCSV(data)
     if err!= nil {
-        fmt.Println("Error creating CSV reader:", err)
+        logger.Error("Error creating CSV reader:", err)
         return
     }
     to_do_list := processCSV(reader)
@@ -51,7 +52,6 @@ func main() {
             to_do_list[i][1] = *status
             task_change_bool = true
             if *status == "delete" {
-                fmt.Println(to_do_list)
                 if len(to_do_list)-1 == i {
                     to_do_list = to_do_list[:i]
                 } else {
@@ -69,7 +69,7 @@ func main() {
     // Writing CSV file starts here
     writer, file, err := createCSVWriter(filename)
     if err != nil {
-        fmt.Println("Error creating CSV writer:", err)
+        logger.Error("Error creating CSV writer:", err)
         return
     }
     defer file.Close()
@@ -79,7 +79,7 @@ func main() {
     // Flush the writer and check for any errors
     writer.Flush()
     if err := writer.Error(); err != nil {
-        fmt.Println("Error flushing CSV writer:", err)
+        logger.Error("Error flushing CSV writer:", err)
     }
     /*myslice := []string{}
     var input string = "start"
@@ -88,6 +88,7 @@ func main() {
         myslice = append(myslice, input)
     }
     fmt.Println("myslice has value ", myslice) */
+    logger.Info("Task change recorded")
     fmt.Println(to_do_list)
 }
 
@@ -101,9 +102,10 @@ func createCSVWriter(filename string) (*csv.Writer, *os.File, error) {
 }
 
 func writeCSVRecord(writer *csv.Writer, record []string) {
+    logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
     err := writer.Write(record)
     if err != nil {
-        fmt.Println("Error writing record to CSV:", err)
+        logger.Error("Error writing record to CSV:", err)
     }
 }
 
@@ -126,16 +128,16 @@ func parseCSV(data []byte) (*csv.Reader, error) {
 }
 
 func processCSV(reader *csv.Reader) ([][]string){
+    logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
     task_list := [][]string{}
     for {
         record, err := reader.Read()
         if err == io.EOF {
             break
         } else if err!= nil {
-            fmt.Println("Error reading CSV data:", err)
+            logger.Error("Error reading CSV data:", err)
             break
         }
-        //fmt.Println(record)
         task_list = append(task_list, record)
     }
     return task_list
