@@ -83,43 +83,14 @@ func main() {
     flag.Parse()
     
     logger.Debug("Reading CSV file")
-    data, err := readCSVFile(filename)
+    to_do_list, err := readCSVFile(filename)
     if err!= nil {
         logger.ErrorContext(ctx, "Error reading file:", err)
         return
     }
-    reader, err := parseCSV(data)
-    if err!= nil {
-        logger.ErrorContext(ctx, "Error creating CSV reader:", err)
-        return
-    }
-    to_do_list, err := processCSV(reader)
-    if err!= nil {
-        logger.ErrorContext(ctx, "Error processing the CSV:", err)
-        return
-    }
 
     // Check if change is an addition, subtraction, or change in task status
-    i := 0
-    task_change_bool := false
-    for _, task := range to_do_list {
-        if slices.Contains(task, *name) {
-            to_do_list[i][1] = *status
-            task_change_bool = true
-            if *status == "delete" {
-                if len(to_do_list)-1 == i {
-                    to_do_list = to_do_list[:i]
-                } else {
-                    to_do_list = slices.Delete(to_do_list, i, i+1)
-                }
-            }
-        }
-        i++
-    }
-    if task_change_bool == false {
-        new_task := []string{*name, *status}
-        to_do_list = append(to_do_list, new_task)
-    }
+    to_do_list = changeCheck(to_do_list)
     
     /*myslice := []string{}
     var input string = "start"
@@ -169,7 +140,7 @@ func writeCSVRecord(writer *csv.Writer, record []string) (error){
     return nil
 }
 
-func readCSVFile(filename string) ([]byte, error) {
+func readCSVFile(filename string) ([][]string, error) {
     f, err := os.Open(filename)
     if err!= nil {
         return nil, err
@@ -179,15 +150,7 @@ func readCSVFile(filename string) ([]byte, error) {
     if err!= nil {
         return nil, err
     }
-    return data, nil
-}
-
-func parseCSV(data []byte) (*csv.Reader, error) {
     reader := csv.NewReader(bytes.NewReader(data))
-    return reader, nil
-}
-
-func processCSV(reader *csv.Reader) ([][]string, error){
     task_list := [][]string{}
     for {
         record, err := reader.Read()
@@ -200,3 +163,28 @@ func processCSV(reader *csv.Reader) ([][]string, error){
     }
     return task_list, nil
 }
+
+func changeCheck(list_of_lists [][]string) ([][]string) {
+    i := 0
+    task_change_bool := false
+    for _, task := range list_of_lists {
+        if slices.Contains(task, *name) {
+            list_of_lists[i][1] = *status
+            task_change_bool = true
+            if *status == "delete" {
+                if len(list_of_lists)-1 == i {
+                    list_of_lists = list_of_lists[:i]
+                } else {
+                    list_of_lists = slices.Delete(list_of_lists, i, i+1)
+                }
+            }
+        }
+        i++
+    }
+    if task_change_bool == false {
+        new_task := []string{*name, *status}
+        list_of_lists = append(list_of_lists, new_task)
+    }
+    return list_of_lists
+}
+
