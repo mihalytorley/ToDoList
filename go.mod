@@ -1,4 +1,4 @@
-module main
+module mymain
 
 go 1.24.4
 

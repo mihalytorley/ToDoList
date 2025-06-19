@@ -48,6 +48,10 @@ func (h *MyHandler) Handle(ctx context.Context, r slog.Record) error {
     return h.Handler.Handle(ctx, r)
 }
 
+func ErrAttr(err error) slog.Attr {
+    return slog.Any("error", err)
+}
+
 /*func (c *MyHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
     return c.clone()
 }
@@ -75,7 +79,6 @@ func main() {
     slog.SetDefault(slog.New(handler))
     ctx := context.Background()
     ctx = context.WithValue(ctx, traceCtxKey, id.String())
-    //slog.InfoContext(ctx, "message")
 
     logger := slog.With()
 
@@ -86,12 +89,12 @@ func main() {
     logger.Debug("Reading CSV file")
     to_do_list, err := readCSVFile(filename)
     if err!= nil {
-        logger.ErrorContext(ctx, "Error reading file:", err)
+        logger.ErrorContext(ctx, "Error reading file")
         return
     }
 
     // Check if change is an addition, subtraction, or change in task status
-    to_do_list = changeCheck(to_do_list)
+    to_do_list = changeCheck(to_do_list, *name, *status)
     
     /*myslice := []string{}
     var input string = "start"
@@ -105,20 +108,20 @@ func main() {
     logger.Debug("Writing to CSV file")
     writer, file, err := createCSVWriter(filename)
     if err != nil {
-        logger.ErrorContext(ctx, "Error creating CSV writer:", err)
+        logger.ErrorContext(ctx, "Error creating CSV writer")
         return
     }
     defer file.Close()
     for _, record := range to_do_list {
         err = writeCSVRecord(writer, record)
         if err := writer.Error(); err != nil {
-            logger.ErrorContext(ctx, "Error writing to CSV:", err)
+            logger.ErrorContext(ctx, "Error writing to CSV")
         }
     }
     // Flush the writer and check for any errors
     writer.Flush()
     if err := writer.Error(); err != nil {
-        logger.ErrorContext(ctx, "Error flushing CSV writer:", err)
+        logger.ErrorContext(ctx, "Error flushing CSV writer")
     }
     logger.InfoContext(ctx, "Task change recorded")
     fmt.Println(to_do_list)
@@ -165,14 +168,14 @@ func readCSVFile(filename string) ([][]string, error) {
     return task_list, nil
 }
 
-func changeCheck(list_of_lists [][]string) ([][]string) {
+func changeCheck(list_of_lists [][]string, name string, status string) ([][]string) {
     i := 0
     task_change_bool := false
     for _, task := range list_of_lists {
-        if slices.Contains(task, *name) {
-            list_of_lists[i][1] = *status
+        if slices.Contains(task, name) {
+            list_of_lists[i][1] = status
             task_change_bool = true
-            if *status == "delete" {
+            if status == "delete" {
                 if len(list_of_lists)-1 == i {
                     list_of_lists = list_of_lists[:i]
                 } else {
@@ -183,7 +186,7 @@ func changeCheck(list_of_lists [][]string) ([][]string) {
         i++
     }
     if task_change_bool == false {
-        new_task := []string{*name, *status}
+        new_task := []string{name, status}
         list_of_lists = append(list_of_lists, new_task)
     }
     return list_of_lists
