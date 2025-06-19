@@ -9,10 +9,10 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"os/exec"
 	"os/signal"
 	"slices"
 	"syscall"
+    "github.com/google/uuid"
 )
 
 
@@ -48,14 +48,14 @@ func (h *MyHandler) Handle(ctx context.Context, r slog.Record) error {
     return h.Handler.Handle(ctx, r)
 }
 
-func (c *MyHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+/*func (c *MyHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
     return c.clone()
 }
 
 func (c *MyHandler) clone() *MyHandler {
     clone := *c
     return &clone
-}
+}*/
 
 func main() {
     c := make(chan os.Signal)
@@ -66,7 +66,7 @@ func main() {
         os.Exit(1)
     }()
     // Logger and context setup
-    newUUID, err := exec.Command("uuidgen").Output()
+    id := uuid.New()
     var handler slog.Handler
     handler = slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
         AddSource: true,
@@ -74,9 +74,10 @@ func main() {
     handler = &MyHandler{handler}
     slog.SetDefault(slog.New(handler))
     ctx := context.Background()
-    ctx = context.WithValue(ctx, traceCtxKey, newUUID)
+    ctx = context.WithValue(ctx, traceCtxKey, id.String())
+    //slog.InfoContext(ctx, "message")
 
-    logger := slog.With("component", "test")
+    logger := slog.With()
 
     //Reading CSV file starts here
     filename := "task_list.csv"
