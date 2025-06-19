@@ -9,10 +9,10 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"os/exec"
 	"os/signal"
 	"slices"
 	"syscall"
-    "os/exec"
 )
 
 
@@ -45,7 +45,6 @@ func (h *MyHandler) Handle(ctx context.Context, r slog.Record) error {
     if traceID, ok := ctx.Value(traceCtxKey).(string); ok {
         r.Add("trace_id", slog.StringValue(traceID))
     }
-
     return h.Handler.Handle(ctx, r)
 }
 
@@ -59,6 +58,13 @@ func (c *MyHandler) clone() *MyHandler {
 }
 
 func main() {
+    c := make(chan os.Signal)
+    signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+    go func() {
+        <-c
+        fmt.Println("Exitted  before process finished")
+        os.Exit(1)
+    }()
     // Logger and context setup
     newUUID, err := exec.Command("uuidgen").Output()
     var handler slog.Handler
@@ -143,13 +149,6 @@ func main() {
         logger.ErrorContext(ctx, "Error flushing CSV writer:", err)
     }
     logger.InfoContext(ctx, "Task change recorded")
-    c := make(chan os.Signal)
-    signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-    go func() {
-        <-c
-        fmt.Println("Exitted  before process finished")
-        os.Exit(1)
-    }()
     fmt.Println(to_do_list)
 }
 
