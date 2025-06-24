@@ -1,6 +1,6 @@
 You can empty the task_list.csv to start a new to_do_list
 
-To add an item to the to_do_list, in the terminal input: go run main.go --name name_of_task --status status_of_task
+To add an item to the to_do_list, first start up the main.go file in the server folder, then cd to the client folder and in the terminal input: go run main.go --name name_of_task --status status_of_task
 -- example: "go run main.go --name task_1 --status not_started"
 
 To change the status of a task simply write the name of the task whose status you want to change in for name and the status that that you want to change it to
