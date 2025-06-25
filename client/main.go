@@ -64,23 +64,31 @@ func main() {
 }
 
 func client(name string, status string) error {
-	task := &Task{
-		Name: name,
-		Status: status,
-	}
+	if name != "" && status != "" {
+		task := &Task{
+			Name: name,
+			Status: status,
+		}
 
-	b := new(bytes.Buffer)
-	err := json.NewEncoder(b).Encode(task)
-	if err != nil {
-		return err
-	}
+		b := new(bytes.Buffer)
+		err := json.NewEncoder(b).Encode(task)
+		if err != nil {
+			return err
+		}
 
-	resp, err := http.Post("http://localhost:8080/", "application/json", b)
-	if err != nil {
-		return err
+		resp, err := http.Post("http://localhost:8080/", "application/json", b)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+		fmt.Println(resp.Status)
+	} else {
+		resp, err := http.Get("http://localhost:8080/")
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+		fmt.Println(resp.Status)
 	}
-	defer resp.Body.Close()
-
-	fmt.Println(resp.Status)
 	return nil
 }

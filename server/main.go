@@ -39,7 +39,7 @@ func main() {
     signal.Notify(c, os.Interrupt, syscall.SIGTERM)
     go func() {
         <-c
-        fmt.Println("Exitted  before process finished")
+        fmt.Println("Exitted process gracefully")
         os.Exit(1)
     }()
     // Logger and context setup
@@ -79,64 +79,77 @@ func taskHandler(w http.ResponseWriter, r *http.Request) {
 
     logger := slog.With()
 
-    // Catching request
-    task := &Task{}
-    err := json.NewDecoder(r.Body).Decode(task)
-    if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-    fmt.Println("got task:", task)
-
-    // reading CSV file
     filename := "task_list.csv"
-    
-    logger.Debug("Reading CSV file")
-    to_do_list, err := readCSVFile(filename)
-    if err!= nil {
-        logger.ErrorContext(ctx, "Error reading file")
-        return
-    }
 
-    // Check if change is an addition, subtraction, or change in task status
-    name := task.Name
-    status := task.Status
-    fmt.Print(name, ",", status)
-    // task_split := strings.Split(task, ",")
-    // name := task_split[0]
-    // status := task_split[1]
-    to_do_list = changeCheck(to_do_list, name, status)
-    
-    /*myslice := []string{}
-    var input string = "start"
-    for input != "exit" {
-        fmt.Scan(&input)
-        myslice = append(myslice, input)
-    }
-    fmt.Println("myslice has value ", myslice) */
-
-    // Writing CSV file starts here
-    logger.Debug("Writing to CSV file")
-    writer, file, err := createCSVWriter(filename)
-    if err != nil {
-        logger.ErrorContext(ctx, "Error creating CSV writer")
-        return
-    }
-    defer file.Close()
-    for _, record := range to_do_list {
-        err = writeCSVRecord(writer, record)
-        if err := writer.Error(); err != nil {
-            logger.ErrorContext(ctx, "Error writing to CSV")
+    if r.Method == http.MethodPost {
+        // Catching request
+        task := &Task{}
+        err := json.NewDecoder(r.Body).Decode(task)
+        if err != nil {
+            http.Error(w, err.Error(), http.StatusBadRequest)
+            return
         }
+
+        fmt.Println("got task:", task)
+
+        // reading CSV file
+        logger.Debug("Reading CSV file")
+        to_do_list, err := readCSVFile(filename)
+        if err!= nil {
+            logger.ErrorContext(ctx, "Error reading file")
+            return
+        }
+
+        // Check if change is an addition, subtraction, or change in task status
+        name := task.Name
+        status := task.Status
+        fmt.Print(name, ",", status)
+        // task_split := strings.Split(task, ",")
+        // name := task_split[0]
+        // status := task_split[1]
+        to_do_list = changeCheck(to_do_list, name, status)
+        
+        /*myslice := []string{}
+        var input string = "start"
+        for input != "exit" {
+            fmt.Scan(&input)
+            myslice = append(myslice, input)
+        }
+        fmt.Println("myslice has value ", myslice) */
+
+        // Writing CSV file starts here
+        logger.Debug("Writing to CSV file")
+        writer, file, err := createCSVWriter(filename)
+        if err != nil {
+            logger.ErrorContext(ctx, "Error creating CSV writer")
+            return
+        }
+        defer file.Close()
+        for _, record := range to_do_list {
+            err = writeCSVRecord(writer, record)
+            if err := writer.Error(); err != nil {
+                logger.ErrorContext(ctx, "Error writing to CSV")
+            }
+        }
+        // Flush the writer and check for any errors
+        writer.Flush()
+        if err := writer.Error(); err != nil {
+            logger.ErrorContext(ctx, "Error flushing CSV writer")
+        }
+        logger.InfoContext(ctx, "Task change recorded")
+        fmt.Println(to_do_list)
     }
-    // Flush the writer and check for any errors
-    writer.Flush()
-    if err := writer.Error(); err != nil {
-        logger.ErrorContext(ctx, "Error flushing CSV writer")
+
+    if r.Method == http.MethodGet {
+        logger.Debug("Reading CSV file")
+        to_do_list, err := readCSVFile(filename)
+        if err!= nil {
+            logger.ErrorContext(ctx, "Error reading file")
+            return
+        }
+        logger.InfoContext(ctx, "Returning To Do List")
+        fmt.Println(to_do_list)
     }
-    logger.InfoContext(ctx, "Task change recorded")
-    fmt.Println(to_do_list)
 
 	w.WriteHeader(http.StatusCreated)
 }
