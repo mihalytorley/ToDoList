@@ -7,12 +7,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"slices"
-	//"strings"
 	"syscall"
 
 	"github.com/google/uuid"
@@ -42,27 +42,36 @@ func main() {
         fmt.Println("Exitted process gracefully")
         os.Exit(1)
     }()
-    // Logger and context setup
-    id := uuid.New()
-    var handler slog.Handler
-    handler = slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
-        AddSource: true,
-    })
-    handler = &MyHandler{handler}
-    slog.SetDefault(slog.New(handler))
-    ctx := context.Background()
-    ctx = context.WithValue(ctx, traceCtxKey, id.String())
-
-    logger := slog.With()
 
     // Server stuff
     mux := http.NewServeMux()
 
     th := http.HandlerFunc(taskHandler)
-    mux.Handle("/", th)
+    mux.Handle("/", contextMiddleware(th))
 
-	logger.Info("Listening...")
+	log.Print("Listening...")
 	http.ListenAndServe(":8080", mux)
+}
+
+func contextMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        
+        // Logger and context setup
+        id := uuid.New()
+        var handler slog.Handler
+        handler = slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
+            AddSource: true,
+        })
+        handler = &MyHandler{handler}
+        slog.SetDefault(slog.New(handler))
+        ctx := context.Background()
+        ctx = context.WithValue(ctx, traceCtxKey, id.String())
+        logger := slog.With()
+
+        logger.InfoContext(ctx, "Logging request")
+
+		next.ServeHTTP(w, r)
+	})
 }
 
 func taskHandler(w http.ResponseWriter, r *http.Request) {
@@ -81,6 +90,7 @@ func taskHandler(w http.ResponseWriter, r *http.Request) {
 
     filename := "task_list.csv"
 
+    //post Method
     if r.Method == http.MethodPost {
         // Catching request
         task := &Task{}
@@ -137,9 +147,10 @@ func taskHandler(w http.ResponseWriter, r *http.Request) {
             logger.ErrorContext(ctx, "Error flushing CSV writer")
         }
         logger.InfoContext(ctx, "Task change recorded")
-        fmt.Println(to_do_list)
+        fmt.Println("\n", to_do_list)
     }
 
+    //Get method
     if r.Method == http.MethodGet {
         logger.Debug("Reading CSV file")
         to_do_list, err := readCSVFile(filename)
@@ -148,7 +159,7 @@ func taskHandler(w http.ResponseWriter, r *http.Request) {
             return
         }
         logger.InfoContext(ctx, "Returning To Do List")
-        fmt.Println(to_do_list)
+        fmt.Println("\n", to_do_list)
     }
 
 	w.WriteHeader(http.StatusCreated)
