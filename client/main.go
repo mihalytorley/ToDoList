@@ -76,14 +76,14 @@ func client(name string, status string) error {
 			return err
 		}
 
-		resp, err := http.Post("http://localhost:8080/", "application/json", b)
+		resp, err := http.Post("http://localhost:8080/todos", "application/json", b)
 		if err != nil {
 			return err
 		}
 		defer resp.Body.Close()
 		fmt.Println(resp.Status)
 	} else {
-		resp, err := http.Get("http://localhost:8080/")
+		resp, err := http.Get("http://localhost:8080/todos")
 		if err != nil {
 			return err
 		}
