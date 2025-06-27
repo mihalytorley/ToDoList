@@ -257,8 +257,6 @@ func taskHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
-    // we don’t need to load CSV here if JS will fetch JSON,
-    // but we can pass an initial render too:
     filename := "task_list.csv"
     todos, err := readCSVFile(filename)
     if err != nil {
