@@ -13,20 +13,20 @@
 <body>
   <h1>ToDo Groups</h1>
 
+  <div id="groups-container">
   {{range $groupIndex, $group := .}}
     <div class="group">
       <h2>Task {{add $groupIndex 1}}</h2>
       <ul>
         {{range $itemIndex, $task := $group}}
-          <li>
-            {{$task}}
-          </li>
+          <li>{{$task}}</li>
         {{end}}
       </ul>
     </div>
   {{else}}
     <p>No groups to show.</p>
   {{end}}
+  </div>
   </ul>
 
   <script>
@@ -51,9 +51,16 @@
         container.appendChild(div);
       });
     }
-    // Poll every 5 seconds:
-    setInterval('autoRefresh()', 5000);
-    // Optionally, refresh once on load:
+    // Open SSE connection
+    const es = new EventSource("/events");
+    es.onmessage = e => {
+      // whenever we get ANY message, re-fetch
+      console.log("Update event:", e.data);
+      refresh();
+    };
+    es.onerror = err => console.error("SSE error:", err);
+
+    // initial load
     window.addEventListener("load", refresh);
   </script>
 </body>

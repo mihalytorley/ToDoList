@@ -28,6 +28,8 @@ type contextKey int
 
 const (
     traceCtxKey contextKey = iota + 1
+    // ToDo: Don't use enum
+    // ToDo: use magic string instead of iota
 )
 
 type MyHandler struct {
@@ -46,7 +48,7 @@ var tmpl = template.Must(
 
 func main() {
     // ctrl + C graceful shutdown setup
-    c := make(chan os.Signal)
+    c := make(chan os.Signal, 1)
     signal.Notify(c, os.Interrupt, syscall.SIGTERM)
     go func() {
         <-c
@@ -55,13 +57,17 @@ func main() {
     }()
 
     // Server stuff
+    broker := NewBroker()
+
     mux := http.NewServeMux()
-    
+
     mux.HandleFunc("/", indexHandler)
     mux.HandleFunc("/todos.json", jsonHandler)
 
-    th := http.HandlerFunc(taskHandler)
-    mux.Handle("/todos", contextMiddleware(th))
+    mux.Handle("/events", broker)
+
+    th := http.HandlerFunc(taskHandlerWithBroker(broker))
+    mux.Handle("/todos", contextMiddleware(th, *broker))
 
 	log.Print("Listening...")
 	http.ListenAndServe(":8080", mux)
@@ -143,8 +149,10 @@ func ErrAttr(err error) slog.Attr {
     return slog.Any("error", err)
 }
 
+//=====================================================================
+// Webstuff
 
-func contextMiddleware(next http.Handler) http.Handler {
+func contextMiddleware(next http.Handler, broker Broker) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
         
         // Logger and context setup
@@ -165,96 +173,83 @@ func contextMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func taskHandler(w http.ResponseWriter, r *http.Request) {
-    // Logger and context setup
-    id := uuid.New()
-    var handler slog.Handler
-    handler = slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
-        AddSource: true,
-    })
-    handler = &MyHandler{handler}
-    slog.SetDefault(slog.New(handler))
-    ctx := context.Background()
-    ctx = context.WithValue(ctx, traceCtxKey, id.String())
+func taskHandlerWithBroker(broker *Broker) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        // Logger and context setup
+        id := uuid.New()
+        var handler slog.Handler
+        handler = slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
+            AddSource: true,
+        })
+        handler = &MyHandler{handler}
+        slog.SetDefault(slog.New(handler))
+        ctx := context.Background()
+        ctx = context.WithValue(ctx, traceCtxKey, id.String())
 
-    logger := slog.With()
+        logger := slog.With()
 
-    filename := "task_list.csv"
-
-    //post Method
-    if r.Method == http.MethodPost {
-        // Catching request
-        task := &Task{}
-        err := json.NewDecoder(r.Body).Decode(task)
-        if err != nil {
-            http.Error(w, err.Error(), http.StatusBadRequest)
-            return
-        }
-
-        fmt.Println("got task:", task)
-
-        // reading CSV file
-        logger.Debug("Reading CSV file")
+        filename := "task_list.csv"
         to_do_list, err := readCSVFile(filename)
         if err!= nil {
             logger.ErrorContext(ctx, "Error reading file")
             return
         }
 
-        // Check if change is an addition, subtraction, or change in task status
-        name := task.Name
-        status := task.Status
-        fmt.Print(name, ",", status)
-        // task_split := strings.Split(task, ",")
-        // name := task_split[0]
-        // status := task_split[1]
-        to_do_list = changeCheck(to_do_list, name, status)
-        
-        /*myslice := []string{}
-        var input string = "start"
-        for input != "exit" {
-            fmt.Scan(&input)
-            myslice = append(myslice, input)
-        }
-        fmt.Println("myslice has value ", myslice) */
 
-        // Writing CSV file starts here
-        logger.Debug("Writing to CSV file")
-        writer, file, err := createCSVWriter(filename)
-        if err != nil {
-            logger.ErrorContext(ctx, "Error creating CSV writer")
-            return
-        }
-        defer file.Close()
-        for _, record := range to_do_list {
-            err = writeCSVRecord(writer, record)
-            if err := writer.Error(); err != nil {
-                logger.ErrorContext(ctx, "Error writing to CSV")
+        //post Method
+        if r.Method == http.MethodPost {
+            // Catching request
+            task := &Task{}
+            err := json.NewDecoder(r.Body).Decode(task)
+            if err != nil {
+                http.Error(w, err.Error(), http.StatusBadRequest)
+                return
             }
-        }
-        // Flush the writer and check for any errors
-        writer.Flush()
-        if err := writer.Error(); err != nil {
-            logger.ErrorContext(ctx, "Error flushing CSV writer")
-        }
-        logger.InfoContext(ctx, "Task change recorded")
-        fmt.Println("\n", to_do_list)
-    }
 
-    //Get method
-    if r.Method == http.MethodGet {
-        logger.Debug("Reading CSV file")
-        to_do_list, err := readCSVFile(filename)
-        if err!= nil {
-            logger.ErrorContext(ctx, "Error reading file")
-            return
-        }
-        logger.InfoContext(ctx, "Returning To Do List")
-        fmt.Println("\n", to_do_list)
-    }
+            fmt.Println("got task:", task)
 
-	w.WriteHeader(http.StatusCreated)
+            // Check if change is an addition, subtraction, or change in task status
+            name := task.Name
+            status := task.Status
+            fmt.Print(name, ",", status)
+            to_do_list = changeCheck(to_do_list, name, status)
+            
+
+            // Writing CSV file starts here
+            logger.Debug("Writing to CSV file")
+            writer, file, err := createCSVWriter(filename)
+            if err != nil {
+                logger.ErrorContext(ctx, "Error creating CSV writer")
+                return
+            }
+            defer file.Close()
+            for _, record := range to_do_list {
+                err = writeCSVRecord(writer, record)
+                if err := writer.Error(); err != nil {
+                    logger.ErrorContext(ctx, "Error writing to CSV")
+                }
+            }
+            // Flush the writer and check for any errors
+            writer.Flush()
+            if err := writer.Error(); err != nil {
+                logger.ErrorContext(ctx, "Error flushing CSV writer")
+            }
+            logger.InfoContext(ctx, "Task change recorded")
+            fmt.Println("\n", to_do_list)
+        }
+
+        //Get method
+        if r.Method == http.MethodGet {
+            logger.InfoContext(ctx, "Returning To Do List")
+            fmt.Println("\n", to_do_list)
+        }
+
+
+        broker.messages <- "updated"
+        w.WriteHeader(http.StatusCreated)
+    }
 }
+
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
     filename := "task_list.csv"
@@ -289,4 +284,77 @@ func (c *MyHandler) clone() *MyHandler {
     clone := *c
     return &clone
 }*/
+
+//=====================================================================
+// SSE Broker
+
+type Broker struct {
+    // New client connection requests
+    newClients chan chan string
+    // Closed client connection notifications
+    defunct    chan chan string
+    // Messages to broadcast
+    messages   chan string
+    // Active clients
+    clients    map[chan string]bool
+}
+
+func NewBroker() *Broker {
+    b := &Broker{
+        newClients: make(chan chan string),
+        defunct:    make(chan chan string),
+        messages:   make(chan string),
+        clients:    make(map[chan string]bool),
+    }
+    go b.listen()
+    return b
+}
+
+func (b *Broker) listen() {
+    for {
+        select {
+        case c := <-b.newClients:
+            b.clients[c] = true
+        case c := <-b.defunct:
+            delete(b.clients, c)
+            close(c)
+        case msg := <-b.messages:
+            for c := range b.clients {
+                c <- msg
+            }
+        }
+    }
+}
+
+// SSE handler: streams events to each connected client.
+func (b *Broker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+    flusher, ok := w.(http.Flusher)
+    if !ok {
+        http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
+        return
+    }
+    // Headers for SSE
+    w.Header().Set("Content-Type", "text/event-stream")
+    w.Header().Set("Cache-Control", "no-cache")
+    w.Header().Set("Connection", "keep-alive")
+
+    // Create a message channel for this client
+    msgChan := make(chan string)
+    b.newClients <- msgChan
+
+    // When handler exits, notify broker to remove this client
+    defer func() {
+        b.defunct <- msgChan
+    }()
+
+    // Listen and serve messages
+    for {
+        msg, open := <-msgChan
+        if !open {
+            return
+        }
+        fmt.Fprintf(w, "data: %s\n\n", msg)
+        flusher.Flush()
+    }
+}
 
