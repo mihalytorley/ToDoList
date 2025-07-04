@@ -34,6 +34,8 @@ type contextKey int
 
 const (
 	traceCtxKey contextKey = iota + 1
+    // ToDo: Don't use enum
+    // ToDo: use magic string instead of iota
 )
 
 func changeCheck(list_of_lists [][]string, name, status string) [][]string {
@@ -398,6 +400,7 @@ func main() {
     mux.Handle("/", contextMiddleware(indexHandler(tm)))
     mux.Handle("/todos.json", contextMiddleware(jsonHandler(tm)))
     mux.Handle("/events", broker)
+    // ToDo: Fix broker being OO'ish
     mux.Handle("/todos", contextMiddleware(taskHandler(tm, broker)))
 
     server := &http.Server{Addr: ":8080", Handler: mux}
@@ -420,5 +423,5 @@ func main() {
     }()
 
     // Block main goroutine
-    select {} // block forever
+    select {}
 }
