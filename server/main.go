@@ -71,7 +71,9 @@ var tmpl = template.Must(
         ParseFS(templateFS, "templates/index.html"),
 )
 
-// ------------------ Actor: TaskManager ------------------
+//=====================================================================
+// Actor stuff
+
 type TaskRequest struct {
 	Response chan<- [][]string
 }
@@ -224,7 +226,9 @@ func (tm *TaskManager) Shutdown() {
 	close(tm.shutdownCh)
 }
 
-// ------------------ Middleware ------------------
+//=====================================================================
+// Middleware
+
 type MyHandler struct {
 	slog.Handler
 }
@@ -256,7 +260,9 @@ func ErrAttr(err error) slog.Attr {
 	return slog.Any("error", err)
 }
 
-// ------------------ Handlers ------------------
+//=====================================================================
+// Handlers
+
 func indexHandler(tm *TaskManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tasks, err := tm.GetTasks()
@@ -269,7 +275,7 @@ func indexHandler(tm *TaskManager) http.HandlerFunc {
         log.Printf("template execute error: %v\n", err)
         http.Error(w, "Internal Server Error", 500)
         return
-    }
+        }
 	}
 }
 
@@ -391,7 +397,9 @@ func (b *Broker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 
-// ------------------ Main ------------------
+//=====================================================================
+// Main
+
 func main() {
     broker := NewBroker()
     tm := NewTaskManager("task_list.csv")
