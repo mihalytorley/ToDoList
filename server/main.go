@@ -62,7 +62,9 @@ func changeCheck(list_of_lists [][]string, name, status string) [][]string {
     return list_of_lists
 }
 
-// ------------------ Template ------------------
+//=====================================================================
+// Template
+
 func add(x, y int) int { return x + y }
 
 var tmpl = template.Must(

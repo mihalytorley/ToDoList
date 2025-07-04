@@ -1,0 +1,67 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>My ToDo Groups</title>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: 2rem auto; }
+    ul { padding-left: 1rem; }
+    .group { margin-bottom: 1.5rem; }
+  </style>
+</head>
+<body>
+  <h1>ToDo Groups</h1>
+
+  <div id="groups-container">
+  {{range $groupIndex, $group := .}}
+    <div class="group">
+      <h2>Task {{add $groupIndex 1}}</h2>
+      <ul>
+        {{range $itemIndex, $task := $group}}
+          <li>{{$task}}</li>
+        {{end}}
+      </ul>
+    </div>
+  {{else}}
+    <p>No groups to show.</p>
+  {{end}}
+  </div>
+  </ul>
+
+  <script>
+    async function refresh() {
+      const res = await fetch("/todos.json");
+      const groups = await res.json();
+      const container = document.body.querySelector("#groups-container");
+      container.innerHTML = "";
+      groups.forEach((group, i) => {
+        const div = document.createElement("div");
+        div.classList.add("group");
+        const h2 = document.createElement("h2");
+        h2.textContent = `Group ${i + 1}`;
+        div.appendChild(h2);
+        const ul = document.createElement("ul");
+        group.forEach(task => {
+          const li = document.createElement("li");
+          li.textContent = task; 
+          ul.appendChild(li);
+        });
+        div.appendChild(ul);
+        container.appendChild(div);
+      });
+    }
+    // Open SSE connection
+    const es = new EventSource("/events");
+    es.onmessage = e => {
+      // whenever we get ANY message, re-fetch
+      console.log("Update event:", e.data);
+      refresh();
+    };
+    es.onerror = err => console.error("SSE error:", err);
+
+    // initial load
+    window.addEventListener("load", refresh);
+  </script>
+</body>
+</html>
