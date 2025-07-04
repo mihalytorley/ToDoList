@@ -38,8 +38,6 @@ func TestRaceConditions(t *testing.T) {
 
 	log.Print("Listening...")
 	http.ListenAndServe(":8080", mux)
-    // Block main goroutine
-    select {}
 }
 
 func TestChangeCheckAddition(t *testing.T) {

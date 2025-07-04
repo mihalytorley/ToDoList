@@ -112,6 +112,4 @@ func main() {
 
 	log.Print("Listening...")
 	http.ListenAndServe(":8080", mux)
-    // Block main goroutine
-    select {}
 }

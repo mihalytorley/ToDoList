@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -40,37 +41,41 @@ var tmpl = template.Must(
 
 func taskHandler(actor Actor) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-    // Logger and context setup
-    id := uuid.New()
-    var handler slog.Handler
-    handler = slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
-        AddSource: true,
-    })
-    handler = &MyHandler{handler}
-    slog.SetDefault(slog.New(handler))
-    ctx := context.Background()
-    ctx = context.WithValue(ctx, traceCtxKey, id.String())
+        start_handler := time.Now()
+        // Logger and context setup
+        id := uuid.New()
+        var handler slog.Handler
+        handler = slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
+            AddSource: true,
+        })
+        handler = &MyHandler{handler}
+        slog.SetDefault(slog.New(handler))
+        ctx := context.Background()
+        ctx = context.WithValue(ctx, traceCtxKey, id.String())
 
-    logger := slog.With()
+        logger := slog.With()
 
-    //post Method
-    if r.Method == http.MethodPost {
-        logger.InfoContext(ctx, "Post Method")
-        //Catching request
-        task := &Task{}
-        err := json.NewDecoder(r.Body).Decode(task)
-        if err != nil {
-            http.Error(w, err.Error(), http.StatusBadRequest)
-            return
+        //post Method
+        if r.Method == http.MethodPost {
+            logger.InfoContext(ctx, "Post Method")
+            //Catching request
+            task := &Task{}
+            err := json.NewDecoder(r.Body).Decode(task)
+            if err != nil {
+                http.Error(w, err.Error(), http.StatusBadRequest)
+                return
+            }
+
+            fmt.Println("got task:", task)
+
+            actor.Send(*task)
+            elapsed_handler := time.Since(start_handler)
+            fmt.Println("\nTime elapsed handler: ", elapsed_handler)
         }
 
-        fmt.Println("got task:", task)
-
-        actor.Send(*task)
+        w.WriteHeader(http.StatusCreated)
     }
-
-	w.WriteHeader(http.StatusCreated)
-}}
+}
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
     filename := "task_list.csv"

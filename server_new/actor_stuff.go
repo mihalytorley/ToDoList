@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -21,6 +22,7 @@ func NewActor() *Actor {
 
 
 func (a *Actor) Receive(broker Broker) {
+    start_outside := time.Now()
 	// Logger and context setup
     id := uuid.New()
     var handler slog.Handler
@@ -36,6 +38,7 @@ func (a *Actor) Receive(broker Broker) {
 	
 	filename := "task_list.csv"
     for task := range a.inbox {
+        start_inside := time.Now()
         // reading CSV file
         logger.Debug("Reading CSV file")
         to_do_list, err := readCSVFile(filename)
@@ -72,7 +75,11 @@ func (a *Actor) Receive(broker Broker) {
         logger.InfoContext(ctx, "Task change recorded")
         fmt.Println("\n", to_do_list)
 		broker.messages <- "updated"
+        elapsed_inside := time.Since(start_inside)
+        fmt.Println("\nTime elapsed inside: ", elapsed_inside)
     }
+    elapsed_outside := time.Since(start_outside)
+    fmt.Println("\nTime elapsed outside: ", elapsed_outside)
 }
 
 func (a *Actor) Send(task Task) {
