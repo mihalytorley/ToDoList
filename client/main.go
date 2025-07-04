@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -10,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/google/uuid"
@@ -19,11 +21,6 @@ type Task struct {
     Name string   `json:"name"`
     Status string `json:"status"`
 }
-
-var (
-    name *string = flag.String("name", "", "a string describing the name of the task")
-    status *string = flag.String("status", "", "a string describing if the task is either not started, started, or completed")
-)
 
 type contextKey int
 
@@ -36,12 +33,12 @@ type MyHandler struct {
 }
 
 func main() {
-	c := make(chan os.Signal)
+	c := make(chan os.Signal, 1)
     signal.Notify(c, os.Interrupt, syscall.SIGTERM)
     go func() {
         <-c
         fmt.Println("Exitted  before process finished")
-        os.Exit(1)
+        os.Exit(0)
     }()
     // Logger and context setup
     id := uuid.New()
@@ -58,37 +55,56 @@ func main() {
 
 	flag.Parse()
 	
-	if err := client(*name, *status); err != nil {
+	if err := client(); err != nil {
 		logger.ErrorContext(ctx, "Error sending task to server")
 	}
 }
 
-func client(name string, status string) error {
-	if name != "" && status != "" {
-		task := &Task{
-			Name: name,
-			Status: status,
-		}
-
-		b := new(bytes.Buffer)
-		err := json.NewEncoder(b).Encode(task)
+func client() error {
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		// Prompt user for command
+        fmt.Print("Input name of task and task status like so: name, status: \n")
+        
+        // Read a line from input
+        input, err := reader.ReadString('\n')
 		if err != nil {
 			return err
 		}
 
-		resp, err := http.Post("http://localhost:8080/todos", "application/json", b)
-		if err != nil {
-			return err
+		name := strings.ReplaceAll(strings.TrimSpace(strings.Split(input, ",")[0]), " ", "_")
+		status := strings.ReplaceAll(strings.TrimSpace(strings.Split(input, ",")[1]), " ", "_")
+
+		if len(strings.Split(input, ",")) > 2 {
+			fmt.Print("In the right format plz \n")
+			continue
 		}
-		defer resp.Body.Close()
-		fmt.Println(resp.Status)
-	} else {
-		resp, err := http.Get("http://localhost:8080/todos")
-		if err != nil {
-			return err
+
+		if name != "" && status != "" {
+			task := &Task{
+				Name: name,
+				Status: status,
+			}
+
+			b := new(bytes.Buffer)
+			err := json.NewEncoder(b).Encode(task)
+			if err != nil {
+				return err
+			}
+
+			resp, err := http.Post("http://localhost:8080/todos", "application/json", b)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			fmt.Println(resp.Status)
+		} else {
+			resp, err := http.Get("http://localhost:8080/todos")
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			fmt.Println(resp.Status)
 		}
-		defer resp.Body.Close()
-		fmt.Println(resp.Status)
 	}
-	return nil
 }
